@@ -1,100 +1,225 @@
----
-label: "Welcome"
-icon: home
----
-![](/static/retype-hero.png)
+# Retype Build Action
 
-# Welcome to Retype
+A GitHub Action to build a [Retype](https://retype.com/) powered website. The output of this action is then made available to subsequent workflow steps, such as publishing to GitHub Pages using the [retypeapp/action-github-pages](https://github.com/retypeapp/action-github-pages) action.
 
-[Retype](https://retype.com/) is an :sparkles: ultra-high-performance :sparkles: static website generator that builds a website based on simple Markdown text files. Focus on your writing while Retype builds the rest.
+## Introduction
 
-{.callout}
-> “Retype is the perfect fit for my user persona -\
-> tech savvy non-devs who want to write using the best web standards out there” *- jonnyfeelgood*
+This action runs `retype build` over the files in a repository to build a website in the form of a static html website that can be published to any website hosting solution available.
 
-No coding is required and just one Markdown file, such as a [README.md](https://www.makeareadme.com/), will get you started.
+After the action completes, it will export the `retype-output-path` value for the next steps to handle the output. The output files can then be pushed back to GitHub, or sent by FTP to another web server, or any other form of website publication target.
 
-The [retype.com](https://retype.com/) website was generated using Retype. View the [source](https://github.com/retypeapp/retype/blob/main/README.md) used to generate this very page.
+This action will look for a [`retype.yml`](https://retype.com/configuration/project/) file in the repository root.
 
-{.callout}
-> “I don't want to write code to write docs,\
-> I just want to write docs.” *- rab-dev*
+## Usage
 
-A new Retype powered website can be up and running within seconds once Retype is installed, which itself takes only a few seconds. :+1:
+```yaml
+steps:
+- uses: actions/checkout@v3
 
----
-
-## Quick start :zap::zap::zap:
-
-You can install Retype using `npm`, `yarn`, or the `dotnet` CLI.
-
-From your command line, navigate to a folder location where you have one or more Markdown (.md) files, such as a GitHub project.
-
-Next, choose one of the following tools to first install `retypeapp` and then start Retype by using the `retype start` [command](/guides/cli.md#retype-start):
-
-+++ NPM
+- uses: retypeapp/action-build@latest
 ```
-npm install retypeapp --global
-retype start
+
+### Optional: `setup-dotnet` step
+
+It may be useful to include the [actions/setup-dotnet](https://github.com/actions/setup-dotnet) step before `retypeapp/action-build@latest`. With this, the Build Action can install the `dotnet tool` Retype package.
+
+The workflow file above would then become:
+
+```yaml
+steps:
+- uses: actions/checkout@v3
+
+- uses: actions/setup-dotnet@v1
+  with:
+    dotnet-version: 7.0.x
+
+- uses: retypeapp/action-build@latest
 ```
-+++ Yarn
+
+If this is not included though, the action will still work, but it may need to use the NPM package in case the installed .NET version is not the one required by Retype. When resorting to the NPM package it may take a bit longer to set up the workflow due to the larger download size. It may also be the case that the GitHub runner is an unsupported OS by the NPM packages; as long as it has .NET installed, Retype should work regardless of the OS. But the NPM package is built targetted to specific OS'es, namely Linux, Mac and Windows.
+
+## Inputs
+
+Configuration of the project should be done in the projects [`retype.yml`](https://retype.com/configuration/project) file.
+
+### `config`
+
+Specifies the path where `retype.yml` file should be located or path to the specific configuration file.
+
+### `license`
+
+Specifies the license key to be used with Retype.
+
+```yaml
+- uses: retypeapp/action-build@latest
+  with:
+    license: ${{ secrets.RETYPE_LICENSE_KEY }}
 ```
-yarn global add retypeapp
-retype start
+
+**NOTICE**: The `license` key value cannot be saved directly to your configuration file. To pass the license key to Retype during the build process, the value must be passed as a GitHub Secret. For information on how to store a secret on your repository or organization, see [RETYPE_SECRET](https://retype.com/configuration/envvars/#retype_secret) docs.
+
+### `strict`
+
+This config is Retype [!badge PRO](https://retype.com/pro/) only.
+
+To enable [`--strict`](https://retype.com/guides/cli/#options-2) mode during build. Return a non-zero exit code if the build had errors or warnings.
+
+```yaml
+- uses: retypeapp/action-build@latest
+  with:
+    strict: true
 ```
-+++ dotnet
+
+## Examples
+
+The following workflow will serve as our starting template for most of the samples below.
+
+```yaml
+name: GitHub Action for Retype
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: retypeapp/action-build@latest
 ```
-dotnet tool install retypeapp --global
-retype start
+
+Here are a few common workflow scenarios.
+
+### Most common setup
+
+```yaml
+steps:
+  - uses: retypeapp/action-build@latest
 ```
-+++
 
-That's it! Your new Retype website should be up and running.
+## Specify a Retype license key
 
-!!!
-You will require either [npm](https://www.npmjs.com/get-npm), [Yarn](https://classic.yarnpkg.com/en/docs/install/), or the [dotnet](https://dotnet.microsoft.com/download/dotnet-core) CLI to be installed before installing Retype. Only one of those three is required, although all three could be installed on your machine too. It's up to you. :raised_hands:
+If a `license` key is required, please configure using a GitHub Secret.
 
-All operating systems are supported: including Mac, Windows, and Linux.
-!!!
+```yaml
+- uses: retypeapp/action-build@latest
+  with:
+    license: ${{ secrets.RETYPE_LICENSE_KEY }}
+```
 
----
+For more information on how to set up and use secrets in GitHub actions, see [Encrypted secrets](https://docs.github.com/en/actions/reference/encrypted-secrets).
 
-## Features
+## Specify path to the retype.yml file
 
-#### :icon-shield-check: It just works
+It is possible to point the directory where `retype.yml` is:
 
-Retype has been built to be easy to use and should _"just work"_ out-of-the-box without any special configuration or troublesome setup.
+```yaml
+- uses: retypeapp/action-build@latest
+  with:
+    config: my_docs
+```
 
-#### :icon-zap: Lightning fast
+Or the full path (relative to the repository root) to retype.yml
 
-Don't blink. Retype was built for speed.
+```yaml
+- uses: retypeapp/action-build@latest
+  with:
+    config: my_docs/retype.yml
+```
 
-#### :icon-gear: Easy install
+The config file may have a different file name
 
-[Installation](/guides/getting-started.md) takes only a few seconds. Then all you need is one Markdown **.md** file which Retype will start building a new website from.
+```yaml
+- uses: retypeapp/action-build@latest
+  with:
+    config: my_docs/retype-staging.json
+```
 
-#### :icon-plug: Powerful
+In a bit more complex scenario where various repositories are checked out in a workflow. This may be useful, for instance, if retype documentation is generated from files across different repositories.
 
-Project level [configuration](/configuration/project.md) using **retype.yml** unlocks many more features and customization.
+```yaml
+- uses: actions/checkout@v3
+  with:
+    path: own-repository
 
-#### :icon-pencil: Simple formatting
+- uses: actions/checkout@v3
+  with:
+    repository: organization/repository-name
+    path: auxiliary-repository
 
-Pages are [formatted](/guides/formatting.md) using Markdown syntax and Retype [components](/components/components.md). Page level [configuration](/configuration/page.md) is available, such as setting a custom navigation [`label`](/configuration/page.md#label) or [`icon`](/configuration/page.md#icon).
+- uses: retypeapp/action-build@latest
+  with:
+    config: own-repository/my_docs/retype.yml
+```
 
-#### :icon-sync: Live reload
+## Passing the output path to another action
 
-If a change is detected, such as editing and saving an **.md** file, your Retype website will be updated almost instantly within the browser.
+It is possible to get the output path of this step to use in other steps or actions after the `action-build` is complete by using the `retype-output-path` value.
 
-#### :icon-server: Host anywhere
+```yaml
+- uses: retypeapp/action-build@latest
+  id: build1
 
-Retype generates a basic HTML website that you can host on any web hosting service, or for free using [GitHub Pages](/hosting/github-pages.md), [Netlify](/hosting/netlify.md), or [Cloudflare](/hosting/cloudflare.md). No special server-side software or external dependencies are required. You can host your Retype site as a public website or as a private website within your organization's network.
+- shell: bash
+  env:
+    MY_ENV_TO_RETYPE_PATH: ${{ steps.build1.outputs.retype-output-path }}
+  run: echo "Retype output is available at '${MY_ENV_TO_RETYPE_PATH}'."
+```
 
----
+Other Retype actions within the workflow may consume the output of this action by using the `RETYPE_OUTPUT_PATH` environment variable.
 
-## Support
+It is required to upload the output with [actions/upload-artifact](https://github.com/actions/upload-artifact), as changes in the file system are not available across different GitHub action jobs. Then from the subsequent job(s), the artifact can be retrieved using the `download-artifact` action.
 
-Do you have a technical support question, found a defect, or would like to make a feature request? Please create an [issue](https://github.com/retypeapp/retype/issues) and we will investigate right away.
+The following sample demonstrates the [`upload-artifact`](https://github.com/actions/upload-artifact) and [`download-artifact`](https://github.com/actions/download-artifact) actions.
 
-Do you have a general inquiry? Please feel free to contact us at hello@retype.com.
+## Uploading the output as an artifact
 
-We :heart: feedback.
+To use the Retype output in another job within the same workflow, or let an external source download it, it is possible to use [`actions/upload-artifact`](https://github.com/actions/upload-artifact) to persist the files. The uploaded artifact can then be retrieved in another job or workflow using [`actions/download-artifact`](https://github.com/actions/download-artifact)
+
+```yaml
+- uses: retypeapp/action-build@latest
+  id: build1
+
+- uses: actions/upload-artifact@v2
+  with:
+    path: ${{ steps.build1.outputs.retype-output-path }}
+```
+
+## Publishing to GitHub Pages
+
+By using the Retype [retypeapp/action-github-pages](https://github.com/retypeapp/action-github-pages) action, the workflow can publish the output to a branch, or directory, or even a make a Pull Request. The website can then be hosted using [GitHub Pages](https://docs.github.com/en/github/working-with-github-pages/getting-started-with-github-pages).
+
+The following sample demonstrates configuring the Retype `action-github-pages` action to publish to GitHub Pages:
+
+```yaml
+- uses: retypeapp/action-build@latest
+
+- uses: retypeapp/action-github-pages@latest
+  with:
+    branch: retype
+    update-branch: true
+```
+
+## Testing with a specific branch of the retypepp action
+
+You can test with a specific branch of the retypapp action by replacing the `@latest` with the `@branch-name-here`.
+
+```yaml
+- uses: retypeapp/action-build@branch-name-here
+```
+
+## Build in `--strict` mode
+
+Return a non-zero exit code if the build had errors or warnings. Set `true` to enable stict mode.
+
+```yaml
+- uses: retypeapp/action-build@latest
+  with:
+    strict: true
+```
